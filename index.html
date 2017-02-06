@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Bootstrap Example</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.6/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-table/1.10.1/bootstrap-table.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.6/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-table/1.10.1/bootstrap-table.min.js"></script>
+
+    <script src="bootstrap-table-export.js"></script>
+    <script src="//rawgit.com/hhurz/tableExport.jquery.plugin/master/tableExport.js"></script>
+
+    <style>
+        .row{
+            margin-top:40px;
+            padding: 0 10px;
+        }
+        .clickable{
+            cursor: pointer;   
+        }
+        .panel-heading span {
+            margin-top: -20px;
+            font-size: 15px;
+        }
+
+        #stats th, #stats td {
+            border: 1px !important;
+        }
+    </style>
+</head>
+
+<body>
+    <script>
+        var mergeArray = [];
+        var changeHeaderArray = [];
+        var diffCellArray = [];
+        var curColumnIndex;
+        var headerCount;
+
+        $(document).ready(function () {
+            getDataFromJsonFile("diff_result.json");
+
+            // Select File Event
+            $('.selectfile').on('change', function () {
+                var selected = $(this).find("option:selected").val();
+
+                //Initialize Values
+                mergeArray = [];
+                changeHeaderArray = [];
+                diffCellArray = [];
+                curColumnIndex = 0;
+                headerCount = 0;
+
+                getDataFromJsonFile(selected);
+            });
+
+            // Select file from input
+            var input = document.getElementsByTagName('input')[0];
+            input.onchange = function(e) { 
+                var str = this.value;
+                var tmp = str.lastIndexOf("\\") + 1;
+                getDataFromJsonFile(str.substring(tmp, str.length));
+            };
+        });
+
+        // Get Data from Json File
+        function getDataFromJsonFile(fileName) {
+            // getJSON Method
+            ///////////////////////////////////////////////////////////////
+            /*
+            $.getJSON("sample.json", function (data) {
+                
+                var items = [];    // THE ARRAY TO STORE JSON ITEMS.
+                $.each(data, function (key, val) {
+                    items.push("<li id='" + key + "'>" + val + "</li>");
+                });
+                console.log(data);
+                $('#table').bootstrapTable({
+                    data: data
+                });
+            });
+            */
+            ///////////////////////////////////////////////////////////////
+            // Ajax Method
+            $.ajax({
+                type: "POST",
+                url: fileName,
+                dataType: "json",
+                data: {},
+                success: function (response) {
+                    console.log(response);
+                    var newData = [];
+                    console.log(" the length is :::  " + response.differencessForKey.length);
+
+                    var doubleexist = false;
+                    var columerow = 0;
+                    for (var i = 0, l = response.differencessForKey.length; i < l; i++) {
+                        var sarr = response.differencessForKey[i].computedUnmatchPair[0].srcFormatted;
+                        var darr = response.differencessForKey[i].computedUnmatchPair[0].distFormatted;
+                        var badcolsarr = response.differencessForKey[i].computedUnmatchPair[0].badCols;
+                        /*
+                        if (badcolsarr.length > 0){
+                            console.log("bad cols ::: " + badcolsarr);
+                        }
+                        */
+                        var key = response.differencessForKey[i].key
+                        var keyStr = "";
+                        for (var k = 0; k < key.length; k++) {
+                            keyStr += key[k].col + ":" + key[k].value + ", ";
+                        }
+
+                        keyStr = keyStr.substring(0, keyStr.length - 2);
+
+                        if (sarr) {
+                            var row = {}
+                            row["key"] = keyStr;
+                            row["type"] = "src";
+                            for (var j = 0, jl = sarr.length; j < jl; j++) {
+                                row[sarr[j].col] = sarr[j].value;
+                            }
+                            newData.push(row);
+                            columerow++;
+                            doubleexist = true;
+                        }
+                        if (darr) {
+                            var row = {}
+                            row["key"] = keyStr;
+                            row["type"] = "dist";
+                            for (var j = 0, jl = darr.length; j < jl; j++) {
+                                row[darr[j].col] = darr[j].value;
+                            }
+                            newData.push(row);
+
+                            if (doubleexist == true) {
+                                // add mergearray
+                                mergeArray.push(columerow - 1);
+
+                                diffCellArray[columerow - 1] = badcolsarr;
+                                var prevrow = newData[columerow - 1];
+                                $.each(prevrow, function (key, value) {
+                                    if (key !== "type" && prevrow[key] !== row[key]) {
+                                        if (!contains.call(changeHeaderArray, key)){
+                                            changeHeaderArray.push(key);
+                                        }
+                                    }
+                                });
+
+                                /*
+                                var temparr = [];
+                                var prevrow = newData[columerow - 1];
+                                // compare past object
+                                $.each(prevrow, function (key, value) {
+                                    if (key !== "type" && prevrow[key] !== row[key]) {
+                                        if (!contains.call(changeHeaderArray, key)){
+                                            changeHeaderArray.push(key);
+                                        }
+                                        temparr.push(key);
+                                    }
+                                });
+                                diffCellArray[columerow - 1] = temparr;
+                                */
+                            }
+                            columerow++;
+                        }
+                        doubleexist = false;
+                    }
+
+                    // Get HeaderArray
+                    var headerArray = Object.keys(newData[0]);
+                    headerCount = headerArray.length;
+                    curColumnIndex = 0;
+                    var res = JSON.stringify(newData);
+
+                    console.log(newData);
+                    console.log(res);
+                    console.log(mergeArray);
+
+                    setStatsTable(response.stats);
+                    setTable(newData, headerArray);
+                    setMergeCell(0, 10);
+                }
+            });
+        }
+
+        // Show Stats Table
+        function setStatsTable(stats) {
+            console.log(stats);
+
+            $('.srcrecordscount').html(stats.srcRecordsCount);
+            $('.distrecordscount').html(stats.distRecordsCount);
+            $('.totalsrcrecordsmatching').html(stats.totalSrcRecordsMatching);
+            $('.totalsrcrecordsnotmatching').html(stats.totalSrcRecordsNotMatching);
+            $('.totaldistrecordsmatching').html(stats.totalDistRecordsMatching);
+            $('.totaldistrecordsnotmatching').html(stats.totalDistRecordsNotMatching);
+            $('.columnsnotmatching').html(JSON.stringify(stats.columnsNotMatching));
+            $('.columnsnotmatchingmap').html(JSON.stringify(stats.columnsNotMatchingMap));
+        }
+
+
+        // Show data to Table
+        function setTable(tableData, headerArray) {
+            $("#table").bootstrapTable('destroy');
+            $("#table thead tr").html('');
+            $.each(headerArray, function (index, value) {
+                var tr = '';
+                if (contains.call(changeHeaderArray, value)){
+                    //tr = $('<th data-field="' + value + '" data-cell-style="cellStyle" data-formatter="stateFormatter">' + value + '<i class="glyphicon glyphicon-star"></i></th>');        
+                    tr = $('<th data-field="' + value + '" data-formatter="stateFormatter">' + value + '<i class="glyphicon glyphicon-star"></i></th>');        
+                } else {
+                    tr = $('<th data-field="' + value + '" data-formatter="stateFormatter">' + value + '</th>');        
+                }
+                
+                $("#table thead tr").append(tr);
+            });
+            $('#table').bootstrapTable({
+                data: tableData,
+                onPageChange: function (number, size) {
+                    setMergeCell((number - 1) * size, number * size);
+                }
+            });
+        }
+
+        // Set mergeCells
+        function setMergeCell(startat, endat) {
+            $.each(mergeArray, function (index, value) {
+                if (value >= startat && value < endat) {
+                    $('#table').bootstrapTable('mergeCells', {
+                        index: value - startat,
+                        field: 'key',
+                        colspan: 1,
+                        rowspan: 2
+                    });
+                }
+            });
+        }
+
+        // Collapse / Expand Stats
+        $(document).on('click', '.panel-heading span.clickable', function (e) {
+            var $this = $(this);
+            if (!$this.hasClass('panel-collapsed')) {
+                $this.parents('.panel').find('.specialCollapse').slideUp();
+                $this.addClass('panel-collapsed');
+                $this.find('i').removeClass('glyphicon-chevron-up').addClass('glyphicon-chevron-down');
+            } else {
+                $this.parents('.panel').find('.specialCollapse').slideDown();
+                $this.removeClass('panel-collapsed');
+                $this.find('i').removeClass('glyphicon-chevron-down').addClass('glyphicon-chevron-up');
+            }
+        })
+
+        // Set Row Color
+        function rowStyle(row, index) {
+            if (row['type'] == 'src')
+                return {
+                    classes: 'info'
+                };
+            else
+                return {
+                    classes: 'success'
+                };
+        }
+
+        // Set Cell Text Color
+        function cellStyle(value, row, index, field) {
+            if (index === 1) {
+                return {
+                    classes: 'text-nowrap',
+                    css: { "color": "blue", "font-size": "16px" }
+                };
+            }
+            return {
+                classes: '',
+            };
+        }
+
+        // Set Cell Text Formatter (First call before cellStyle)
+        function stateFormatter(value, row, index) {
+            var result = '';
+            result = value;
+            if (diffCellArray[index] ) {
+                var cellarr = diffCellArray[index];
+                $.each(cellarr, function (index, column) {
+                    var keyindex = Object.keys(row).indexOf(column);
+                    if (keyindex == curColumnIndex && JSON.stringify(row[column]) === JSON.stringify(value)){
+                         result = '<div style="color: red">' +
+                            value +
+                            '</div>';
+                    }
+                });
+            } else if (diffCellArray[index - 1]){
+                var cellarr = diffCellArray[index - 1];
+                $.each(cellarr, function (index, column) {
+                    var keyindex = Object.keys(row).indexOf(column);
+                    if (keyindex == curColumnIndex && JSON.stringify(row[column]) === JSON.stringify(value)){
+                         result = '<div style="color: red">' +
+                            value +
+                            '</div>';
+                    }
+                });
+            }
+
+            if (curColumnIndex >= headerCount - 1){
+                curColumnIndex = 0;
+            } else {
+                curColumnIndex ++;
+            }
+            return result;
+        }
+
+        var contains = function (needle) {
+            // Per spec, the way to identify NaN is that it is not equal to itself
+            var findNaN = needle !== needle;
+            var indexOf;
+
+            if (!findNaN && typeof Array.prototype.indexOf === 'function') {
+                indexOf = Array.prototype.indexOf;
+            } else {
+                indexOf = function (needle) {
+                    var i = -1, index = -1;
+
+                    for (i = 0; i < this.length; i++) {
+                        var item = this[i];
+
+                        if ((findNaN && item !== item) || item === needle) {
+                            index = i;
+                            break;
+                        }
+                    }
+
+                    return index;
+                };
+            }
+
+            return indexOf.call(this, needle) > -1;
+        };
+    </script>
+
+<div class="container">
+    <h1>Diff Panel</h1>
+    <h4>Results View</h4>
+
+    <div class="form-group">
+        <label for="sel1">Choose File:</label>
+        <select class="selectfile" id="sel1">
+            <option>diff_result.json</option>
+            <option>us-demographic-data-result.json</option>
+        </select>
+        <div><input type="file" name="myfile"> </div>
+    </div>
+
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <h3 class="panel-title">Stats</h3>
+            <span class="pull-right clickable"><i class="glyphicon glyphicon-chevron-up"></i></span>
+        </div>
+        <table class="table table-bordered table-striped specialCollapse" id="stats">
+            <thead style="display: none">
+<tr>
+    <th class="col-md-3"><small>1</small></th>
+    <th class="col-md-5"><small>2</small></th>
+    <th class="col-md-3"><small>3</small></th>
+    <th class="col-md-1"><small>4</small></th>
+</tr>
+</thead>
+<tbody>
+    <tr>
+        <td><small>Src Records Count</small></td>
+        <td><small class="srcrecordscount">73</small></td>
+        <td><small>Dist Records Count</small></td>
+        <td><small class="distrecordscount">38</small></td>
+    </tr>
+    <tr>
+        <td><small>Total Src Records Matching</small></td>
+        <td><small class="totalsrcrecordsmatching">45</small></td>
+        <td><small>Total Src Records Not Matching</small></td>
+        <td><small class="totalsrcrecordsnotmatching">32</small></td>
+    </tr>
+    <tr>
+        <td><small>Total Dist Records Matching</small></td>
+        <td><small class="totaldistrecordsmatching">32</small></td>
+        <td><small>Total Dist Records Not Matching</small></td>
+        <td><small class="totaldistrecordsnotmatching">66</small></td>
+    </tr>
+    <tr>
+        <td><small>Columns Not Matching</small></td>
+        <td><small class="columnsnotmatching">{"address":3, "city":5}</small></td>
+        <td><small></small></td>
+        <td><small></small></td>
+    </tr>
+    <tr>
+        <td><small>Columns Not Matching Map</small></td>
+        <td><small class="columnsnotmatchingmap">{"":3, "city####address":1, "city####country":3, "city####country":3, "city####country":3}</small></td>
+        <td><small></small></td>
+        <td><small></small></td>
+    </tr>
+</tbody>
+</table>
+</div>
+
+<table id="table" class="table" data-height="540" data-search="true" data-show-columns="true" data-pagination="true" data-show-export="true"
+    data-row-style="rowStyle">
+    <!-- <table id="table" class="table" data-height="460"
+            data-search="true"
+            data-show-columns="true"
+            data-show-export="true"
+            data-minimum-count-columns="2"
+            data-pagination="true"
+            data-id-field="key"
+            data-page-list="[10, 25, 50, 100, ALL]"
+            data-show-footer="false"
+            data-side-pagination="server"> -->
+    <thead>
+        <tr>
+            <th data-field="bookid"> Book ID </th>
+            <th data-field="name"> Book Name </th>
+            <th data-field="category"> Category </th>
+            <th data-field="price"> Item Price </th>
+        </tr>
+    </thead>
+</table>
+</div>
+
+
+</body>
+
+</html>
